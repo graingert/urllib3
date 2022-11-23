@@ -120,8 +120,6 @@ def validate_peercert(ssl_socket: SSLTransport) -> None:
     assert cert["serialNumber"] != ""
 
 
-
-
 def consume_socket(
     sock: SSLTransport | socket.socket, chunks: int = 65536
 ) -> bytearray:
@@ -227,84 +225,6 @@ class SocketDummyServerTestCase:
             if key == header_name_bytes and expected_value_bytes is not None:
                 assert value == expected_value_bytes
         assert header_name_bytes in header_titles
-
-
-class IPV4SocketDummyServerTestCase(SocketDummyServerTestCase):
-    @classmethod
-    def _start_server(
-        cls, socket_handler: typing.Callable[[socket.socket], None]
-    ) -> None:
-        ready_event = threading.Event()
-        cls.server_thread = SocketServerThread(
-            socket_handler=socket_handler, ready_event=ready_event, host=cls.host
-        )
-        cls.server_thread.USE_IPV6 = False
-        cls.server_thread.start()
-        ready_event.wait(5)
-        if not ready_event.is_set():
-            raise Exception("most likely failed to start server")
-        cls.port = cls.server_thread.port
-
-
-class ConnectionMarker:
-    """
-    Marks an HTTP(S)Connection's socket after a request was made.
-
-    Helps a test server understand when a client finished a request,
-    without implementing a complete HTTP server.
-    """
-
-    MARK_FORMAT = b"$#MARK%04x*!"
-
-    @classmethod
-    @contextlib.contextmanager
-    def mark(
-        cls, monkeypatch: pytest.MonkeyPatch
-    ) -> typing.Generator[None, None, None]:
-        """
-        Mark connections under in that context.
-        """
-
-        orig_request = HTTPConnection.request
-
-        def call_and_mark(
-            target: typing.Callable[..., None]
-        ) -> typing.Callable[..., None]:
-            def part(
-                self: HTTPConnection, *args: typing.Any, **kwargs: typing.Any
-            ) -> None:
-                target(self, *args, **kwargs)
-                self.sock.sendall(cls._get_socket_mark(self.sock, False))
-
-            return part
-
-        with monkeypatch.context() as m:
-            m.setattr(HTTPConnection, "request", call_and_mark(orig_request))
-            yield
-
-    @classmethod
-    def consume_request(cls, sock: socket.socket, chunks: int = 65536) -> bytearray:
-        """
-        Consume a socket until after the HTTP request is sent.
-        """
-        consumed = bytearray()
-        mark = cls._get_socket_mark(sock, True)
-        while True:
-            b = sock.recv(chunks)
-            if not b:
-                break
-            consumed += b
-            if consumed.endswith(mark):
-                break
-        return consumed
-
-    @classmethod
-    def _get_socket_mark(cls, sock: socket.socket, server: bool) -> bytes:
-        if server:
-            port = sock.getpeername()[1]
-        else:
-            port = sock.getsockname()[1]
-        return cls.MARK_FORMAT % (port,)
 
 
 class SingleTLSLayerTestCase(SocketDummyServerTestCase):
