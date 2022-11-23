@@ -272,7 +272,11 @@ def consume_socket(
     return consumed
 
 
-class SocketDummyServerTestCase:
+class SingleTLSLayerTestCase:
+    """
+    Uses the SocketDummyServer to validate a single TLS layer can be
+    established through the SSLTransport.
+    """
     """
     A simple socket-based server is created for this class that is good for
     exactly one request.
@@ -364,13 +368,6 @@ class SocketDummyServerTestCase:
             if key == header_name_bytes and expected_value_bytes is not None:
                 assert value == expected_value_bytes
         assert header_name_bytes in header_titles
-
-
-class SingleTLSLayerTestCase(SocketDummyServerTestCase):
-    """
-    Uses the SocketDummyServer to validate a single TLS layer can be
-    established through the SSLTransport.
-    """
 
     @classmethod
     def setup_class(cls) -> None:
